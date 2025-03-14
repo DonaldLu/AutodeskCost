@@ -57,9 +57,11 @@ namespace AutodeskCost
         {
             public string id { get; set; }
             public string name { get; set; }
-            public string department { get; set; }
-            public int managerId { get; set; }
             public string managerName { get; set; }
+            public int managerId { get; set; }
+            public int departmentId { get; set; }
+            public string department { get; set; }
+            public double percent { get; set; }
             public double drawing { get; set; }
             public double rent { get; set; }
             public double consumables { get; set; }

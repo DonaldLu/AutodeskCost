@@ -32,7 +32,8 @@ namespace AutodeskCost
                 try
                 {
                     ReadFile readFile = new ReadFile();
-                    readFile.ReadExcel(filePath, prjNumberTB.Text);
+                    bool success = readFile.ReadExcel(filePath, prjNumberTB.Text);
+                    if (!success) { MessageBox.Show(readFile.errorInfo); }
                 }
                 catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
                 Close();
