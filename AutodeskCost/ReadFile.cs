@@ -43,13 +43,13 @@ namespace AutodeskCost
         /// <param name="filePath"></param>
         /// <param name="charsToRemove"></param>
         /// <returns></returns>
-        public bool ReadExcel(string filePath, string prjNumber)
+        public bool ReadExcel(string filePath, string prjNumber, int leaderId)
         {
             string errorSheetName = string.Empty;
             List<PrjData> prjInfos = new List<PrjData>(); // 計畫資訊
             List<PrjData> prjDatas = new List<PrjData>(); // 部門電腦使用費月報
             List<UserData> userDatas = new List<UserData>(); // 部門電腦使用費月報
-            List<UserData> userInfos = new List<UserData>(); // Autodesk軟體使用計畫
+            List<UserData> useSoftInfos = new List<UserData>(); // Autodesk軟體使用計畫
 
             try
             {
@@ -72,7 +72,7 @@ namespace AutodeskCost
                     }
                     else if (sheetName.Equals("部門電腦使用費月報"))
                     {
-                        (List<PrjData>, List<UserData>) prjAndUserDatas = GetPrjAndUserDatas(workSheet, rows, cols, prjNumber);
+                        (List<PrjData>, List<UserData>) prjAndUserDatas = GetPrjAndUserDatas(workSheet, rows, cols, prjNumber, leaderId);
                         prjDatas = prjAndUserDatas.Item1;
                         userDatas = prjAndUserDatas.Item2;
                         // 檢查是否有計畫編號缺漏
@@ -92,8 +92,8 @@ namespace AutodeskCost
                     }
                     else if (sheetName.Equals("Autodesk軟體使用計畫"))
                     {
-                        userInfos = GetUserInfos(workSheet, rows);
-                        List<UserData> nullUserInfos = userInfos.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
+                        useSoftInfos = GetUseSoftInfos(workSheet, rows);
+                        List<UserData> nullUserInfos = useSoftInfos.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
                         if (nullUserInfos.Count > 0)
                         {
                             errorInfo = "【Autodesk軟體使用計畫】使用者未填寫計畫編號：";
@@ -101,14 +101,21 @@ namespace AutodeskCost
                             foreach(string userName in nullUserInfos.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
                             return false;
                         }
-                        nullUserInfos = userInfos.Where(x => !Math.Round((x.percent1 + x.percent2 + x.percent3), 0, MidpointRounding.AwayFromZero).Equals(1.0)).ToList();
-                        UserData user = userInfos.Where(x => x.name.Equals("郭天慈")).FirstOrDefault();
-                        double percent = Math.Round(user.percent1 + user.percent2 + user.percent3, 0, MidpointRounding.AwayFromZero);
+                        nullUserInfos = useSoftInfos.Where(x => !Math.Round((x.percent1 + x.percent2 + x.percent3), 0, MidpointRounding.AwayFromZero).Equals(1.0)).ToList();
                         if (nullUserInfos.Count > 0)
                         {
                             errorInfo = "【Autodesk軟體使用計畫】使用者計畫比例未達100%：";
                             int i = 1;
                             foreach (string userName in nullUserInfos.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
+                            return false;
+                        }
+                        SaveUserUseSoftInfos(userDatas, useSoftInfos); // 比對使用者使用軟體的狀態
+                        List<UserData> userPrjsAllNulls = userDatas.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
+                        if(userPrjsAllNulls.Count > 0)
+                        {
+                            errorInfo = "【Autodesk軟體使用計畫】使用者無對應到軟體使用計畫編號：";
+                            int i = 1;
+                            foreach (string userName in userPrjsAllNulls.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
                             return false;
                         }
                     }
@@ -136,41 +143,45 @@ namespace AutodeskCost
             List<PrjData> prjInfos = new List<PrjData>();
             for (int i = 2; i <= rows; i++)
             {
-                try
+                string value = workSheet.Cells[i, 1].Value?.ToString() ?? "";
+                if (!String.IsNullOrEmpty(value))
                 {
-                    PrjData prjData = new PrjData();
-                    prjData.id = workSheet.Cells[i, 1].Value?.ToString() ?? "";
-                    prjData.name = workSheet.Cells[i, 2].Value?.ToString() ?? "";
-                    prjData.managerName = workSheet.Cells[i, 3].Value?.ToString() ?? "";
-                    string value = workSheet.Cells[i, 4].Value?.ToString() ?? "";
-                    if (!String.IsNullOrEmpty(value))
+                    try
                     {
-                        int managerId = 0;
-                        int.TryParse(value, out managerId);
-                        prjData.managerId = managerId;
+                        PrjData prjData = new PrjData();
+                        prjData.id = workSheet.Cells[i, 1].Value?.ToString() ?? "";
+                        prjData.name = workSheet.Cells[i, 2].Value?.ToString() ?? "";
+                        prjData.managerName = workSheet.Cells[i, 3].Value?.ToString() ?? "";
+                        value = workSheet.Cells[i, 4].Value?.ToString() ?? "";
+                        if (!String.IsNullOrEmpty(value))
+                        {
+                            int managerId = 0;
+                            int.TryParse(value, out managerId);
+                            prjData.managerId = managerId;
+                        }
+                        value = workSheet.Cells[i, 5].Value?.ToString() ?? "";
+                        if (!String.IsNullOrEmpty(value))
+                        {
+                            int departmentId = 0;
+                            int.TryParse(value, out departmentId);
+                            prjData.departmentId = departmentId;
+                        }
+                        value = workSheet.Cells[i, 6].Value?.ToString() ?? "";
+                        if (!String.IsNullOrEmpty(value))
+                        {
+                            double percent = 0;
+                            double.TryParse(value, out percent);
+                            prjData.percent = percent;
+                        }
+                        prjInfos.Add(prjData);
                     }
-                    value = workSheet.Cells[i, 5].Value?.ToString() ?? "";
-                    if (!String.IsNullOrEmpty(value))
-                    {
-                        int departmentId = 0;
-                        int.TryParse(value, out departmentId);
-                        prjData.departmentId = departmentId;
-                    }
-                    value = workSheet.Cells[i, 6].Value?.ToString() ?? "";
-                    if (!String.IsNullOrEmpty(value))
-                    {
-                        double percent = 0;
-                        double.TryParse(value, out percent);
-                        prjData.percent = percent;
-                    }
-                    prjInfos.Add(prjData);
+                    catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
                 }
-                catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
             }            
             return prjInfos;
         }
         // 部門電腦使用費月報
-        private (List<PrjData>, List<UserData>) GetPrjAndUserDatas(Excel._Worksheet workSheet, int rows, int cols, string prjNumber)
+        private (List<PrjData>, List<UserData>) GetPrjAndUserDatas(Excel._Worksheet workSheet, int rows, int cols, string prjNumber, int leaderId)
         {
             List<PrjData> prjDatas = new List<PrjData>();
             List<UserData> userDatas = new List<UserData>();
@@ -214,6 +225,11 @@ namespace AutodeskCost
                                     UserData userData = new UserData();
                                     userData.id = id;
                                     userData.name = name;
+                                    if (id.Equals(leaderId))
+                                    {
+                                        userData.leader = true;
+                                        userData.project1 = prjNumber;
+                                    }
                                     userDatas.Add(userData);
                                 }
                                 catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
@@ -225,9 +241,9 @@ namespace AutodeskCost
             return (prjDatas, userDatas);
         }
         // Autodesk軟體使用計畫
-        private List<UserData> GetUserInfos(Excel._Worksheet workSheet, int rows)
+        private List<UserData> GetUseSoftInfos(Excel._Worksheet workSheet, int rows)
         {
-            List<UserData> userInfos = new List<UserData>();
+            List<UserData> useSoftInfos = new List<UserData>();
             for (int i = 3; i <= rows; i++)
             {
                 try
@@ -277,12 +293,29 @@ namespace AutodeskCost
                                 userData.percent3 = percent;
                             }
                         }
-                        userInfos.Add(userData);
+                        useSoftInfos.Add(userData);
                     }
                 }
                 catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
             }
-            return userInfos;
+            return useSoftInfos;
+        }
+        // 比對使用者使用軟體的狀態
+        private void SaveUserUseSoftInfos(List<UserData> userDatas, List<UserData> useSoftInfos)
+        {
+            foreach(UserData userData in userDatas)
+            {
+                UserData userSoftInfo = useSoftInfos.Where(x => x.id.Equals(userData.id)).FirstOrDefault();
+                if(userSoftInfo != null)
+                {
+                    userData.project1 = userSoftInfo.project1;
+                    userData.percent1 = userSoftInfo.percent1;
+                    userData.project2 = userSoftInfo.project2;
+                    userData.percent2 = userSoftInfo.percent2;
+                    userData.project3 = userSoftInfo.project3;
+                    userData.percent3 = userSoftInfo.percent3;
+                }
+            }
         }
     }
 }

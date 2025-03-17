@@ -38,6 +38,7 @@ namespace AutodeskCost
         {
             public int id { get; set; }
             public string name { get; set; }
+            public bool leader { get; set; }
             public double cadCost { get; set; }
             public double bdspCost { get; set; }
             public double sapCost { get; set; }

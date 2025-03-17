@@ -37,6 +37,8 @@ namespace AutodeskCost
             this.cancelBtn = new System.Windows.Forms.Button();
             this.label3 = new System.Windows.Forms.Label();
             this.prjNumberTB = new System.Windows.Forms.TextBox();
+            this.label4 = new System.Windows.Forms.Label();
+            this.leaderIdTB = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // excelBtn
@@ -70,7 +72,7 @@ namespace AutodeskCost
             // sureBtn
             // 
             this.sureBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.sureBtn.Location = new System.Drawing.Point(179, 144);
+            this.sureBtn.Location = new System.Drawing.Point(179, 153);
             this.sureBtn.Name = "sureBtn";
             this.sureBtn.Size = new System.Drawing.Size(75, 36);
             this.sureBtn.TabIndex = 3;
@@ -81,7 +83,7 @@ namespace AutodeskCost
             // cancelBtn
             // 
             this.cancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.cancelBtn.Location = new System.Drawing.Point(277, 144);
+            this.cancelBtn.Location = new System.Drawing.Point(277, 153);
             this.cancelBtn.Name = "cancelBtn";
             this.cancelBtn.Size = new System.Drawing.Size(75, 36);
             this.cancelBtn.TabIndex = 3;
@@ -107,15 +109,35 @@ namespace AutodeskCost
             this.prjNumberTB.Text = "9510Q";
             this.prjNumberTB.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
             // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(13, 116);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(86, 17);
+            this.label4.TabIndex = 1;
+            this.label4.Text = "部門主管員編";
+            // 
+            // leaderIdTB
+            // 
+            this.leaderIdTB.Location = new System.Drawing.Point(105, 113);
+            this.leaderIdTB.Name = "leaderIdTB";
+            this.leaderIdTB.Size = new System.Drawing.Size(100, 25);
+            this.leaderIdTB.TabIndex = 4;
+            this.leaderIdTB.Text = "4125";
+            this.leaderIdTB.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 17F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(364, 192);
+            this.ClientSize = new System.Drawing.Size(364, 201);
+            this.Controls.Add(this.leaderIdTB);
             this.Controls.Add(this.prjNumberTB);
             this.Controls.Add(this.cancelBtn);
             this.Controls.Add(this.sureBtn);
             this.Controls.Add(this.label2);
+            this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.excelBtn);
@@ -123,7 +145,7 @@ namespace AutodeskCost
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Margin = new System.Windows.Forms.Padding(4);
             this.MaximumSize = new System.Drawing.Size(380, 350);
-            this.MinimumSize = new System.Drawing.Size(380, 170);
+            this.MinimumSize = new System.Drawing.Size(380, 240);
             this.Name = "Form1";
             this.Text = "Autodesk費用";
             this.ResumeLayout(false);
@@ -140,6 +162,8 @@ namespace AutodeskCost
         private System.Windows.Forms.Button cancelBtn;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.TextBox prjNumberTB;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.TextBox leaderIdTB;
     }
 }
 
