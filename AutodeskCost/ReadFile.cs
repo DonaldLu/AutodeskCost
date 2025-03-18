@@ -12,8 +12,14 @@ namespace AutodeskCost
     {
         public string filePath = string.Empty; // 選擇檔案路徑
         public bool trueOrFalse = false; // 預設未選取檔案
-        public List<string> sheetNames = new List<string>() { "計畫資訊", "部門電腦使用費月報", "磁區", "auto cad", "BDSP", "sap", "Rhino", "Lumion", "Autodesk軟體使用計畫" };
+        public List<string> sheetNames = new List<string>() { "計畫資訊", "部門電腦使用費月報", "Autodesk軟體使用計畫", "磁區", "auto cad", "BDSP", "sap", "Rhino", "Lumion" };
         public string errorInfo = string.Empty; // 錯誤訊息
+
+        public List<PrjData> prjInfos = new List<PrjData>(); // 計畫資訊
+        public List<PrjData> prjDatas = new List<PrjData>(); // 部門電腦使用費月報
+        public List<UserData> userDatas = new List<UserData>(); // 部門電腦使用費月報
+        public List<UserData> useSoftInfos = new List<UserData>(); // Autodesk軟體使用計畫
+        public List<PrjData> getDiskInfos = new List<PrjData>(); // 磁區
 
         /// <summary>
         /// 選擇來源檔案
@@ -43,18 +49,17 @@ namespace AutodeskCost
         /// <param name="filePath"></param>
         /// <param name="charsToRemove"></param>
         /// <returns></returns>
-        public bool ReadExcel(string filePath, string prjNumber, int leaderId)
+        public bool ReadExcel(Excel.Workbook workbook, string prjNumber, int leaderId)
         {
             string errorSheetName = string.Empty;
-            List<PrjData> prjInfos = new List<PrjData>(); // 計畫資訊
-            List<PrjData> prjDatas = new List<PrjData>(); // 部門電腦使用費月報
-            List<UserData> userDatas = new List<UserData>(); // 部門電腦使用費月報
-            List<UserData> useSoftInfos = new List<UserData>(); // Autodesk軟體使用計畫
+            this.prjInfos = new List<PrjData>(); // 計畫資訊
+            this.prjDatas = new List<PrjData>(); // 部門電腦使用費月報
+            this.userDatas = new List<UserData>(); // 部門電腦使用費月報
+            this.useSoftInfos = new List<UserData>(); // Autodesk軟體使用計畫
+            this.getDiskInfos = new List<PrjData>(); // 磁區
 
             try
             {
-                Excel.Application excelApp = new Excel.Application();
-                Excel.Workbook workbook = excelApp.Workbooks.Open(filePath);
                 foreach (string sheetName in sheetNames)
                 {
                     errorSheetName = sheetName;
@@ -119,6 +124,28 @@ namespace AutodeskCost
                             return false;
                         }
                     }
+                    else if (sheetName.Equals("磁區"))
+                    {
+                        getDiskInfos = GetDiskInfo(workSheet, rows);
+                        foreach(PrjData prjData in prjDatas)
+                        {
+                            if(getDiskInfos.Where(x => x.id.Equals(prjData.id)).FirstOrDefault() != null)
+                            {
+                                prjData.diskCost = getDiskInfos.Where(x => x.id.Equals(prjData.id)).FirstOrDefault().diskCost;
+                                prjData.consumables = prjData.total - prjData.diskCost;
+                            }
+                            else { prjData.consumables = prjData.total; }
+                        }
+                    }
+                    // 取得使用者各軟體使用費用
+                    else if (sheetName.Equals("auto cad") || sheetName.Equals("BDSP") || sheetName.Equals("sap") || sheetName.Equals("Rhino") || sheetName.Equals("Lumion"))
+                    {
+                        if(!GetUserSoftCost(workSheet, rows, sheetName, userDatas)) 
+                        {
+                            errorInfo = "【" + sheetName + "】尚有員工編號資訊錯誤：";
+                            return false;
+                        }
+                    }
 
                     // 清理記憶體
                     GC.Collect();
@@ -127,11 +154,6 @@ namespace AutodeskCost
                     Marshal.ReleaseComObject(Range);
                     Marshal.ReleaseComObject(workSheet);
                 }
-                // 關閉與釋放
-                workbook.Close();
-                Marshal.ReleaseComObject(workbook);
-                excelApp.Quit();
-                Marshal.ReleaseComObject(excelApp);
             }
             catch(Exception ex) { MessageBox.Show("【" + errorSheetName + "】資料讀取錯誤, 請檢查。\n" + ex.Message + "\n" + ex.ToString()); }
 
@@ -204,7 +226,7 @@ namespace AutodeskCost
                             {
                                 PrjData prjData = new PrjData();
                                 prjData.id = lastPrjId;
-                                prjData.consumables = total;
+                                prjData.total = total;
                                 prjDatas.Add(prjData);
                             }
                         }
@@ -316,6 +338,111 @@ namespace AutodeskCost
                     userData.percent3 = userSoftInfo.percent3;
                 }
             }
+        }
+        // 磁區
+        private List<PrjData> GetDiskInfo(Excel._Worksheet workSheet, int rows)
+        {
+            List<PrjData> getDiskInfos = new List<PrjData>();
+            for (int i = 2; i <= rows; i++)
+            {
+                string value = workSheet.Cells[i, 2].Value?.ToString() ?? "";
+                if (!String.IsNullOrEmpty(value))
+                {
+                    try
+                    {
+                        PrjData prjData = new PrjData();
+                        prjData.id = value; // 計畫編號
+                        value = workSheet.Cells[i, 3].Value?.ToString() ?? ""; // 主管
+                        if (!String.IsNullOrEmpty(value))
+                        {
+                            string value1 = value.Substring(0, 4);
+                            int managerId = Convert.ToInt32(value1);
+                            string managerName = value.Substring(4, value.Length - 4);
+                            prjData.managerId = managerId;
+                            prjData.managerName = managerName;
+                        }
+                        value = workSheet.Cells[i, 6].Value?.ToString() ?? ""; // 歸屬部門
+                        if (!String.IsNullOrEmpty(value))
+                        {
+                            prjData.department = value;
+                        }
+                        value = workSheet.Cells[i, 7].Value?.ToString() ?? ""; // 費用
+                        if (!String.IsNullOrEmpty(value))
+                        {
+                            double cost = 0;
+                            double.TryParse(value, out cost);
+                            prjData.diskCost = cost;
+                        }
+                        getDiskInfos.Add(prjData);
+                    }
+                    catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                }
+            }
+            return getDiskInfos;
+        }
+        // 取得使用者各軟體使用費用
+        private bool GetUserSoftCost(Excel._Worksheet workSheet, int rows, string sheetName, List<UserData> userDatas)
+        {
+            for (int i = 2; i <= rows; i++)
+            {
+                string value = workSheet.Cells[i, 1].Value?.ToString() ?? "";
+                if (!String.IsNullOrEmpty(value))
+                {
+                    int id = Convert.ToInt32(value);
+                    UserData userData = userDatas.Where(x => x.id.Equals(id)).FirstOrDefault();
+                    value = workSheet.Cells[i, 12].Value?.ToString() ?? "";
+                    if (userData != null && !String.IsNullOrEmpty(value))
+                    {
+                        try
+                        {
+                            double cost = Convert.ToDouble(value);
+                            if (sheetName.Equals("auto cad")) { userData.cadCost += cost; userData.total += cost; }
+                            else if (sheetName.Equals("BDSP")) { userData.bdspCost += cost; userData.total += cost; }
+                            else if (sheetName.Equals("sap")) { userData.sapCost += cost; userData.total += cost; }
+                            else if (sheetName.Equals("Rhino")) { userData.rhinoCost += cost; userData.total += cost; }
+                            else if (sheetName.Equals("Lumion")) { userData.lumionCost += cost; userData.total += cost; }
+                        }
+                        catch(Exception ex) { string error = ex.Message + "\n" + ex.ToString(); return false; }
+                    }
+                }
+                else { return false; }
+            }
+            return true;
+        }
+        // 計算使用者各計畫所花費占比
+        public bool PrjCosts(List<UserData> userDatas, List<PrjData> prjInfos)
+        {
+            List<string> nullPrjIds = new List<string>();
+            // 計算使用者各計畫所花費占比
+            foreach (UserData userData in userDatas)
+            {
+                userData.cost1 = userData.total * userData.percent1;
+                userData.cost2 = userData.total * userData.percent2;
+                userData.cost3 = userData.total * userData.percent3;
+            }
+            // 各專案使用的月租/時數費用
+            List<string> prjIds = new List<string>();
+            prjIds = userDatas.Where(x => !String.IsNullOrEmpty(x.project1)).Select(x => x.project1.ToUpper()).Distinct().ToList().Concat
+                    (userDatas.Where(x => !String.IsNullOrEmpty(x.project2)).Select(x => x.project2.ToUpper()).Distinct().ToList()).Concat
+                    (userDatas.Where(x => !String.IsNullOrEmpty(x.project3)).Select(x => x.project3.ToUpper()).Distinct().ToList()).Distinct().OrderBy(x => x).ToList();
+            foreach (string prjId in prjIds)
+            {
+                PrjData prjInfo = prjInfos.Where(x => x.id.Equals(prjId, StringComparison.OrdinalIgnoreCase)).FirstOrDefault(); // 忽略大小寫
+                if (prjInfo == null) { nullPrjIds.Add(prjId); }
+                else
+                {
+
+                }
+            }
+            if (nullPrjIds.Count > 0)
+            {
+                string errorInfo = string.Empty;
+                int i = 1;
+                foreach (string nullPrjId in nullPrjIds) { errorInfo += i + ". " + nullPrjId + "\n"; i++; }
+                MessageBox.Show("【計畫資訊】缺少對應Autodesk軟體使用計畫編號：\n" + errorInfo);
+                return false;
+            }
+            return true;
         }
     }
 }
