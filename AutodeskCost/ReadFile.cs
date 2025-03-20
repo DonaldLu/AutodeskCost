@@ -100,14 +100,25 @@ namespace AutodeskCost
                     else if (sheetName.Equals("磁區"))
                     {
                         getDiskInfos = GetDiskInfo(workSheet, rows);
-                        foreach(PrjData prjData in prjDatas)
+                        foreach (PrjData prjData in prjDatas)
                         {
-                            if(getDiskInfos.Where(x => x.id.Equals(prjData.id)).FirstOrDefault() != null)
+                            if (getDiskInfos.Where(x => x.id.Equals(prjData.id)).FirstOrDefault() != null)
                             {
                                 prjData.diskCost = getDiskInfos.Where(x => x.id.Equals(prjData.id)).FirstOrDefault().diskCost;
                                 prjData.consumables = prjData.total - prjData.diskCost;
                             }
                             else { prjData.consumables = prjData.total; }
+                        }
+                        foreach (PrjData prjInfo in prjInfos)
+                        {
+                            PrjData prjData = prjDatas.Where(x => x.id.Equals(prjInfo.id)).FirstOrDefault();
+                            if (prjData != null)
+                            {
+                                prjInfo.diskCost = prjData.diskCost;
+                                prjInfo.consumables = prjData.consumables;
+                                prjInfo.total = prjData.total;
+                            }
+                            else { prjInfo.consumables = prjInfo.total; }
                         }
                     }
                     // 取得使用者各軟體使用費用
@@ -486,6 +497,7 @@ namespace AutodeskCost
                 {
                     excelApp.Cells[1, col + 1] = colNames[col];
                 }
+                prjInfos = prjInfos.Where(x => x.consumables > 0 || x.total > 0 || x.diskCost > 0).ToList();
                 for (int i = 0; i < prjInfos.Count; i++)
                 {
                     excelApp.Cells[i + 2, 1] = prjInfos[i].id; // 計畫編號
