@@ -1,5 +1,7 @@
-﻿using System;
+﻿using Microsoft.Office.Interop.Excel;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -12,7 +14,7 @@ namespace AutodeskCost
     {
         public string filePath = string.Empty; // 選擇檔案路徑
         public bool trueOrFalse = false; // 預設未選取檔案
-        public List<string> sheetNames = new List<string>() { "計畫資訊", "部門電腦使用費月報", "Autodesk軟體使用計畫", "磁區", "auto cad", "BDSP", "sap", "Rhino", "Lumion" };
+        public List<string> sheetNames = new List<string>() { "計畫資訊", "部門電腦使用費月報", "磁區", "auto cad", "BDSP", "sap", "Rhino", "Lumion", "Autodesk軟體使用計畫" };
         public string errorInfo = string.Empty; // 錯誤訊息
 
         public List<PrjData> prjInfos = new List<PrjData>(); // 計畫資訊
@@ -95,35 +97,6 @@ namespace AutodeskCost
                             return false;
                         }
                     }
-                    else if (sheetName.Equals("Autodesk軟體使用計畫"))
-                    {
-                        useSoftInfos = GetUseSoftInfos(workSheet, rows);
-                        List<UserData> nullUserInfos = useSoftInfos.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
-                        if (nullUserInfos.Count > 0)
-                        {
-                            errorInfo = "【Autodesk軟體使用計畫】使用者未填寫計畫編號：";
-                            int i = 1;
-                            foreach(string userName in nullUserInfos.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
-                            return false;
-                        }
-                        nullUserInfos = useSoftInfos.Where(x => !Math.Round((x.percent1 + x.percent2 + x.percent3), 0, MidpointRounding.AwayFromZero).Equals(1.0)).ToList();
-                        if (nullUserInfos.Count > 0)
-                        {
-                            errorInfo = "【Autodesk軟體使用計畫】使用者計畫比例未達100%：";
-                            int i = 1;
-                            foreach (string userName in nullUserInfos.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
-                            return false;
-                        }
-                        SaveUserUseSoftInfos(userDatas, useSoftInfos); // 比對使用者使用軟體的狀態
-                        List<UserData> userPrjsAllNulls = userDatas.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
-                        if(userPrjsAllNulls.Count > 0)
-                        {
-                            errorInfo = "【Autodesk軟體使用計畫】使用者無對應到軟體使用計畫編號：";
-                            int i = 1;
-                            foreach (string userName in userPrjsAllNulls.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
-                            return false;
-                        }
-                    }
                     else if (sheetName.Equals("磁區"))
                     {
                         getDiskInfos = GetDiskInfo(workSheet, rows);
@@ -144,6 +117,63 @@ namespace AutodeskCost
                         {
                             errorInfo = "【" + sheetName + "】尚有員工編號資訊錯誤：";
                             return false;
+                        }
+                    }
+                    else if (sheetName.Equals("Autodesk軟體使用計畫"))
+                    {
+                        useSoftInfos = GetUseSoftInfos(workSheet, rows);
+                        List<UserData> nullUserInfos = useSoftInfos.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
+                        if (nullUserInfos.Count > 0)
+                        {
+                            errorInfo = "【Autodesk軟體使用計畫】使用者未填寫計畫編號：";
+                            int i = 1;
+                            foreach (string userName in nullUserInfos.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
+                            return false;
+                        }
+                        nullUserInfos = useSoftInfos.Where(x => !Math.Round((x.percent1 + x.percent2 + x.percent3), 0, MidpointRounding.AwayFromZero).Equals(1.0)).ToList();
+                        if (nullUserInfos.Count > 0)
+                        {
+                            errorInfo = "【Autodesk軟體使用計畫】使用者計畫比例未達100%：";
+                            int i = 1;
+                            foreach (string userName in nullUserInfos.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
+                            return false;
+                        }
+                        // 比對使用者使用軟體的狀態
+                        foreach (UserData userData in userDatas)
+                        {
+                            UserData userSoftInfo = useSoftInfos.Where(x => x.id.Equals(userData.id)).FirstOrDefault();
+                            if (userSoftInfo != null)
+                            {
+                                userData.project1 = userSoftInfo.project1;
+                                userData.percent1 = userSoftInfo.percent1;
+                                userData.project2 = userSoftInfo.project2;
+                                userData.percent2 = userSoftInfo.percent2;
+                                userData.project3 = userSoftInfo.project3;
+                                userData.percent3 = userSoftInfo.percent3;
+                            }
+                        }
+                        List<UserData> userPrjsAllNulls = userDatas.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
+                        if (userPrjsAllNulls.Count > 0)
+                        {
+                            errorInfo = "【Autodesk軟體使用計畫】使用者無對應到軟體使用計畫編號：";
+                            int i = 1;
+                            foreach (string userName in userPrjsAllNulls.Select(x => x.name)) { errorInfo += "\n" + i + ". " + userName; i++; }
+                            return false;
+                        }
+                        else
+                        {
+                            List<string> nullPrjIds = PrjCosts(userDatas, prjInfos); // 計算使用者各計畫所花費占比
+                            if (nullPrjIds.Count > 0)
+                            {
+                                errorInfo = "【計畫資訊】缺少對應Autodesk軟體使用計畫編號：";
+                                int i = 1;
+                                foreach (string nullPrjId in nullPrjIds) { errorInfo += i + ". " + nullPrjId + "\n"; i++; }
+                                return false;
+                            }
+                            else
+                            {
+
+                            }
                         }
                     }
 
@@ -322,23 +352,6 @@ namespace AutodeskCost
             }
             return useSoftInfos;
         }
-        // 比對使用者使用軟體的狀態
-        private void SaveUserUseSoftInfos(List<UserData> userDatas, List<UserData> useSoftInfos)
-        {
-            foreach(UserData userData in userDatas)
-            {
-                UserData userSoftInfo = useSoftInfos.Where(x => x.id.Equals(userData.id)).FirstOrDefault();
-                if(userSoftInfo != null)
-                {
-                    userData.project1 = userSoftInfo.project1;
-                    userData.percent1 = userSoftInfo.percent1;
-                    userData.project2 = userSoftInfo.project2;
-                    userData.percent2 = userSoftInfo.percent2;
-                    userData.project3 = userSoftInfo.project3;
-                    userData.percent3 = userSoftInfo.percent3;
-                }
-            }
-        }
         // 磁區
         private List<PrjData> GetDiskInfo(Excel._Worksheet workSheet, int rows)
         {
@@ -410,7 +423,7 @@ namespace AutodeskCost
             return true;
         }
         // 計算使用者各計畫所花費占比
-        public bool PrjCosts(List<UserData> userDatas, List<PrjData> prjInfos)
+        private List<string> PrjCosts(List<UserData> userDatas, List<PrjData> prjInfos)
         {
             List<string> nullPrjIds = new List<string>();
             // 計算使用者各計畫所花費占比
@@ -431,18 +444,81 @@ namespace AutodeskCost
                 if (prjInfo == null) { nullPrjIds.Add(prjId); }
                 else
                 {
-
+                    List<UserData> samePrj1 = userDatas.Where(x => !String.IsNullOrEmpty(x.project1)).Where(x => x.project1.Equals(prjId, StringComparison.OrdinalIgnoreCase)).ToList();
+                    List<UserData> samePrj2 = userDatas.Where(x => !String.IsNullOrEmpty(x.project2)).Where(x => x.project2.Equals(prjId, StringComparison.OrdinalIgnoreCase)).ToList();
+                    List<UserData> samePrj3 = userDatas.Where(x => !String.IsNullOrEmpty(x.project3)).Where(x => x.project3.Equals(prjId, StringComparison.OrdinalIgnoreCase)).ToList();
+                    double total = samePrj1.Sum(x => x.cost1) + samePrj2.Sum(x => x.cost2) + samePrj3.Sum(x => x.cost3);
+                    prjInfo.total = total;
                 }
             }
-            if (nullPrjIds.Count > 0)
+            return nullPrjIds;
+        }
+        // 將整合費用寫入Excel檔中
+        public void WriteExcel(List<PrjData> prjInfos)
+        {
+            List<string> colNames = new List<string>() { "計畫編號", "計畫簡稱", "消耗品/其他", "月租/時數", "各計劃分攤(耗材)", "小計", "負責人", "員工編號", "磁區費用/月" };
+            string excelPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "\\Test";
+            Excel.Application excelApp = new Excel.Application(); // 創建Excel
+            //excelApp.Visible = true; // 開啟Excel可見
+            Workbook workbook = excelApp.Workbooks.Add(); // 創建一個空的workbook
+            Sheets sheets = workbook.Sheets; // 獲取當前工作簿的數量
+            int sheetCount = 1;
+            string fileName = "整合費用";
+            List<string> existingNames = workbook.Worksheets.Cast<Worksheet>().Select(x => x.Name).ToList();
+            Worksheet worksheet = sheets[1];
+            try
             {
-                string errorInfo = string.Empty;
-                int i = 1;
-                foreach (string nullPrjId in nullPrjIds) { errorInfo += i + ". " + nullPrjId + "\n"; i++; }
-                MessageBox.Show("【計畫資訊】缺少對應Autodesk軟體使用計畫編號：\n" + errorInfo);
-                return false;
+                if (sheetCount == 1) { if (!existingNames.Contains(fileName)) { worksheet.Name = fileName; } }
+                else
+                {
+                    worksheet = sheets.Add(After: sheets[sheets.Count]); // 新增一個工作表
+                    try
+                    {
+                        if (!existingNames.Contains(fileName)) { worksheet.Name = fileName; }
+                    }
+                    catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                }
+                sheetCount++;
+
+                worksheet.Cells.Font.Name = "微軟正黑體"; // 設定Excel資料字體字型
+                worksheet.Cells.Font.Size = 10; // 設定Excel資料字體大小
+                for (int col = 0; col < colNames.Count; col++)
+                {
+                    excelApp.Cells[1, col + 1] = colNames[col];
+                }
+                for (int i = 0; i < prjInfos.Count; i++)
+                {
+                    excelApp.Cells[i + 2, 1] = prjInfos[i].id; // 計畫編號
+                    excelApp.Cells[i + 2, 2] = prjInfos[i].name; // 計畫簡稱
+                    excelApp.Cells[i + 2, 3] = prjInfos[i].consumables; // 消耗品/其他
+                    excelApp.Cells[i + 2, 4] = prjInfos[i].total; // 月租/時數
+                    excelApp.Cells[i + 2, 5] = prjInfos[i].total; // 各計劃分攤(耗材)
+                    excelApp.Cells[i + 2, 6] = prjInfos[i].consumables + prjInfos[i].total; // 小計
+                    excelApp.Cells[i + 2, 7] = prjInfos[i].managerName; // 負責人
+                    excelApp.Cells[i + 2, 8] = prjInfos[i].managerId; // 員工編號
+                    excelApp.Cells[i + 2, 9] = prjInfos[i].diskCost; // 磁區費用/月
+                }
             }
-            return true;
+            catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+            ReleaseObject(worksheet);
+
+            workbook.SaveAs(excelPath);
+
+            // 關閉工作簿和ExcelApp
+            workbook.Close();
+            excelApp.Quit();
+
+            // 釋放COM
+            ReleaseObject(sheets);
+            ReleaseObject(workbook);
+            ReleaseObject(excelApp);
+        }
+        // 釋放COM
+        static void ReleaseObject(object obj)
+        {
+            try { System.Runtime.InteropServices.Marshal.ReleaseComObject(obj); obj = null; }
+            catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); obj = null; }
+            finally { GC.Collect(); }
         }
     }
 }

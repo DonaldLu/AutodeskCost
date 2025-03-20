@@ -44,10 +44,7 @@ namespace AutodeskCost
                     {
                         List<UserData> userDatas = readFile.userDatas; // 部門電腦使用費月報
                         List<PrjData> prjInfos = readFile.prjInfos; // 計畫資訊
-                        if (readFile.PrjCosts(userDatas, prjInfos)) // 計算使用者各計畫所花費占比
-                        {
-
-                        }
+                        readFile.WriteExcel(prjInfos); // 將整合費用寫入Excel檔中
                     }
                 }
                 catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
@@ -60,9 +57,6 @@ namespace AutodeskCost
             }
         }
         // 取消
-        private void cancelBtn_Click(object sender, EventArgs e)
-        {
-            Close();
-        }
+        private void cancelBtn_Click(object sender, EventArgs e) { Close(); }
     }
 }
