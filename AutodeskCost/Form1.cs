@@ -43,8 +43,21 @@ namespace AutodeskCost
                     else
                     {
                         List<UserData> userDatas = readFile.userDatas; // 部門電腦使用費月報
-                        List<PrjData> prjInfos = readFile.prjInfos; // 計畫資訊
-                        readFile.WriteExcel(prjInfos); // 將整合費用寫入Excel檔中
+                        List<SharePrjCost> sharePrjCosts = readFile.SharePrjCost(userDatas); // 各計劃分攤(耗材), 分配剩餘金額
+                        List<PrjData> prjInfos = readFile.prjDatas; // 計畫資訊
+                        double shareCost = readFile.shareCost;
+                        foreach (SharePrjCost sharePrjCost in sharePrjCosts)
+                        {
+                            PrjData prjData = prjInfos.Where(x => x.id.Equals(sharePrjCost.prjId)).FirstOrDefault();
+                            if(prjData != null)
+                            {
+                                if (prjData.id.Equals(prjNumberTB.Text)) { shareCost += sharePrjCost.cost; }
+                                else { prjData.consumables += sharePrjCost.cost; }
+                            }
+                        }
+                        List<PrjData> shareCostPrjs = prjInfos.Where(x => x.percent.Equals(1)).ToList();
+                        foreach(PrjData shareCostPrj in shareCostPrjs) { shareCostPrj.share = shareCost / shareCostPrjs.Count; }
+                        readFile.WriteExcel(prjInfos, prjNumberTB.Text); // 將整合費用寫入Excel檔中
                     }
                 }
                 catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
