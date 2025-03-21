@@ -67,6 +67,8 @@ namespace AutodeskCost
                 excelApp.Quit();
                 Marshal.ReleaseComObject(excelApp);
                 Close();
+
+                MessageBox.Show("已完成整合費用。");
             }
         }
         // 取消
