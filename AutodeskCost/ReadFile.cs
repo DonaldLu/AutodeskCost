@@ -428,27 +428,32 @@ namespace AutodeskCost
         {
             for (int i = 2; i <= rows; i++)
             {
-                string value = workSheet.Cells[i, 1].Value?.ToString() ?? "";
-                if (!String.IsNullOrEmpty(value))
+                try
                 {
-                    int id = Convert.ToInt32(value);
-                    UserData userData = userDatas.Where(x => x.id.Equals(id)).FirstOrDefault();
-                    value = workSheet.Cells[i, 12].Value?.ToString() ?? "";
-                    if (userData != null && !String.IsNullOrEmpty(value))
+                    string value = workSheet.Cells[i, 1].Value?.ToString() ?? "";
+                    if (!String.IsNullOrEmpty(value))
                     {
-                        try
+                        int id = Convert.ToInt32(value);
+                        UserData userData = userDatas.Where(x => x.id.Equals(id)).FirstOrDefault();
+                        value = workSheet.Cells[i, 12].Value?.ToString() ?? "";
+                        if (userData != null && !String.IsNullOrEmpty(value))
                         {
-                            double cost = Convert.ToDouble(value);
-                            if (sheetName.Equals("auto cad")) { userData.cadCost += cost; userData.total += cost; }
-                            else if (sheetName.Equals("BDSP")) { userData.bdspCost += cost; userData.total += cost; }
-                            else if (sheetName.Equals("sap")) { userData.sapCost += cost; userData.total += cost; }
-                            else if (sheetName.Equals("Rhino")) { userData.rhinoCost += cost; userData.total += cost; }
-                            else if (sheetName.Equals("Lumion")) { userData.lumionCost += cost; userData.total += cost; }
+                            try
+                            {
+                                double cost = Convert.ToDouble(value);
+                                if (sheetName.Equals("auto cad")) { userData.cadCost += cost; userData.total += cost; }
+                                else if (sheetName.Equals("BDSP")) { userData.bdspCost += cost; userData.total += cost; }
+                                else if (sheetName.Equals("sap")) { userData.sapCost += cost; userData.total += cost; }
+                                else if (sheetName.Equals("Rhino")) { userData.rhinoCost += cost; userData.total += cost; }
+                                else if (sheetName.Equals("Lumion")) { userData.lumionCost += cost; userData.total += cost; }
+                            }
+                            catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); return false; }
                         }
-                        catch(Exception ex) { string error = ex.Message + "\n" + ex.ToString(); return false; }
                     }
+                    else { return false; }
                 }
-                else { return false; }
+                catch (FormatException ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); return false; }
             }
             return true;
         }
