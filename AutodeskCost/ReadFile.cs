@@ -24,6 +24,7 @@ namespace AutodeskCost
         public List<PrjData> getDiskInfos = new List<PrjData>(); // 磁區
         public List<UserData> useSoftInfos = new List<UserData>(); // Autodesk軟體使用計畫
         public double shareCost { get; set; } // 要Share的費用
+        public bool nullPrjId = false; // 檢查有無輸入錯誤的PrjId
 
         /// <summary>
         /// 選擇來源檔案
@@ -502,6 +503,7 @@ namespace AutodeskCost
                     if (prjData.id.Equals(prjNumber)) { shareCost += sharePrjCost.cost; }
                     else { prjData.consumables += sharePrjCost.cost; }
                 }
+                else { MessageBox.Show("查無此計畫編號：" + sharePrjCost.prjId); nullPrjId = true; }
             }
         }
         // 將整合費用寫入Excel檔中
@@ -542,7 +544,7 @@ namespace AutodeskCost
                 worksheet.Cells.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter; // 文字水平置中
                 worksheet.Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter; // 文字垂直置中
                 List<string> titles = new List<string> { "C", "D", "E", "F", "I" };
-                foreach(string title in titles) { worksheet.Columns[title].NumberFormat = "#,##0.##"; } // 千分位、小數最多兩位
+                //foreach(string title in titles) { worksheet.Columns[title].NumberFormat = "#,##0.##"; } // 千分位、小數最多兩位
                 // 標頭
                 for (int col = 0; col < colNames.Count; col++)
                 {
@@ -556,24 +558,24 @@ namespace AutodeskCost
                 {
                     excelApp.Cells[i + 2, 1] = prjInfos[i].id; // 計畫編號
                     excelApp.Cells[i + 2, 2] = prjInfos[i].name; // 計畫簡稱
-                    excelApp.Cells[i + 2, 3] = Math.Round(prjInfos[i].consumables, 2, MidpointRounding.AwayFromZero); // 消耗品/其他
-                    excelApp.Cells[i + 2, 4] = Math.Round(prjInfos[i].rent, 2, MidpointRounding.AwayFromZero); // 月租/時數
-                    excelApp.Cells[i + 2, 5] = Math.Round(prjInfos[i].share, 2, MidpointRounding.AwayFromZero); // 各計劃分攤(耗材)
+                    ReturnValueAndNumberFormat(prjInfos[i].consumables, excelApp, i + 2, 3); // 消耗品/其他
+                    ReturnValueAndNumberFormat(prjInfos[i].rent, excelApp, i + 2, 4); // 月租/時數
+                    ReturnValueAndNumberFormat(prjInfos[i].share, excelApp, i + 2, 5); // 各計劃分攤(耗材)
                     double total = prjInfos[i].consumables + prjInfos[i].rent + prjInfos[i].share;
                     sum += total;
-                    excelApp.Cells[i + 2, 6] = Math.Round(total, 2, MidpointRounding.AwayFromZero); // 小計
-                    excelApp.Cells[i + 2, 7] = prjInfos[i].managerName; // 負責人
+                    ReturnValueAndNumberFormat(total, excelApp, i + 2, 6); // 小計                    
+                    excelApp.Cells[i + 2, 7] = prjInfos[i].managerName; // 負責人                    
                     excelApp.Cells[i + 2, 8] = prjInfos[i].managerId; // 員工編號
-                    excelApp.Cells[i + 2, 9] = Math.Round(prjInfos[i].diskCost, 2, MidpointRounding.AwayFromZero); // 磁區費用/月
+                    ReturnValueAndNumberFormat(prjInfos[i].diskCost, excelApp, i + 2, 9); // 磁區費用/月
                 }
                 // 各項目加總
                 try
                 {
-                    excelApp.Cells[prjInfos.Count + 2, 3] = Math.Round(prjInfos.Sum(x => x.consumables), 2, MidpointRounding.AwayFromZero); // 消耗品/其他
-                    excelApp.Cells[prjInfos.Count + 2, 4] = Math.Round(prjInfos.Sum(x => x.rent), 2, MidpointRounding.AwayFromZero); // 月租/時數
-                    excelApp.Cells[prjInfos.Count + 2, 5] = Math.Round(prjInfos.Sum(x => x.share), 2, MidpointRounding.AwayFromZero); // 各計劃分攤(耗材)
-                    excelApp.Cells[prjInfos.Count + 2, 6] = Math.Round(sum, 2, MidpointRounding.AwayFromZero); // 小計
-                    excelApp.Cells[prjInfos.Count + 2, 9] = Math.Round(prjInfos.Sum(x => x.diskCost), 2, MidpointRounding.AwayFromZero); // 磁區費用/月
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.consumables), excelApp, prjInfos.Count + 2, 3); // 消耗品/其他
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.rent), excelApp, prjInfos.Count + 2, 4); // 月租/時數
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.share), excelApp, prjInfos.Count + 2, 5); // 各計劃分攤(耗材)
+                    ReturnValueAndNumberFormat(sum, excelApp, prjInfos.Count + 2, 6); // 小計
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.diskCost), excelApp, prjInfos.Count + 2, 9); // 磁區費用/月
                 }
                 catch(Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
                 // 設定框線
@@ -622,6 +624,30 @@ namespace AutodeskCost
             ReleaseObject(sheets);
             ReleaseObject(workbook);
             ReleaseObject(excelApp);
+        }
+        // 回傳值, 格式化小數點
+        private string ReturnNumberFormat(double value)
+        {
+            string numberFormat = "#,##0";
+            string[] splitString = value.ToString().Split('.');
+            if(splitString.Length > 1)
+            {
+                if (!value.ToString().Split('.')[1].Equals("00")) { numberFormat = "#,##0.##"; }
+            }
+            return numberFormat;
+        }
+        // 回傳數值與格式化
+        private void ReturnValueAndNumberFormat(double value, Excel.Application excelApp, int x, int y)
+        {
+            value = Math.Round(value, 2, MidpointRounding.AwayFromZero);
+            excelApp.Cells[x, y] = value;
+            // 格式化
+            excelApp.Cells[x, y].NumberFormat = "#,##0";
+            string[] splitString = value.ToString().Split('.');
+            if (splitString.Length > 1)
+            {
+                if (!value.ToString().Split('.')[1].Equals("00")) { excelApp.Cells[x, y].NumberFormat = "#,##0.##"; }
+            }
         }
         // 釋放COM
         static void ReleaseObject(object obj)
