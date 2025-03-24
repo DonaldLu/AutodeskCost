@@ -509,7 +509,7 @@ namespace AutodeskCost
         // 將整合費用寫入Excel檔中
         public void WriteExcel(List<PrjData> prjInfos, string prjNumber)
         {
-            List<string> colNames = new List<string>() { "計畫編號", "計畫簡稱", "消耗品/其他", "月租/時數", "各計劃分攤(耗材)", "小計", "負責人", "員工編號", "磁區費用/月" };            
+            List<string> colNames = new List<string>() { "計畫編號", "部門ID", "計畫簡稱", "消耗品/其他", "月租/時數", "各計劃分攤(耗材)", "小計", "負責人", "員工編號", "磁區費用/月" };
             DateTime lastMonth = DateTime.Now.AddMonths(-1); // 取得前一個月
             // 設定 CultureInfo 為 zh-TW，並套用 TaiwanCalendar（民國年）
             CultureInfo taiwanCulture = new CultureInfo("zh-TW");
@@ -531,10 +531,7 @@ namespace AutodeskCost
                 else
                 {
                     worksheet = sheets.Add(After: sheets[sheets.Count]); // 新增一個工作表
-                    try
-                    {
-                        if (!existingNames.Contains(sheetName)) { worksheet.Name = sheetName; }
-                    }
+                    try { if (!existingNames.Contains(sheetName)) { worksheet.Name = sheetName; } }
                     catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
                 }
                 sheetCount++;
@@ -543,54 +540,60 @@ namespace AutodeskCost
                 worksheet.Cells.Font.Size = 10; // 設定Excel資料字體大小
                 worksheet.Cells.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter; // 文字水平置中
                 worksheet.Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter; // 文字垂直置中
-                List<string> titles = new List<string> { "C", "D", "E", "F", "I" };
-                //foreach(string title in titles) { worksheet.Columns[title].NumberFormat = "#,##0.##"; } // 千分位、小數最多兩位
                 // 標頭
+                Excel.Range range = worksheet.Range["A1", "J1"];
+                range.Merge();
+                excelApp.Cells[1, 1] = "軌道工程二部 電腦費用 - " + yearMonth + "(含租用費)";
+                excelApp.Cells[1, 1].Font.Size = 14; // 設定Excel資料字體大小
+                excelApp.Cells[1, 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous; // 設定框線
+                excelApp.Cells[1, 1].Interior.Color = System.Drawing.Color.LightSkyBlue; // 設定樣式與背景色
                 for (int col = 0; col < colNames.Count; col++)
                 {
-                    excelApp.Cells[1, col + 1] = colNames[col];
-                    excelApp.Cells[1, col + 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous; // 設定框線
-                    excelApp.Cells[1, col + 1].Interior.Color = System.Drawing.Color.LightYellow; // 設定樣式與背景色
+                    excelApp.Cells[2, col + 1] = colNames[col];
+                    excelApp.Cells[2, col + 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous; // 設定框線
+                    excelApp.Cells[2, col + 1].Interior.Color = System.Drawing.Color.LightYellow; // 設定樣式與背景色
                 }
                 prjInfos = prjInfos.Where(x => x.id.Equals(prjNumber) || x.consumables > 0 || x.rent > 0 || x.share > 0 || x.total > 0 || x.diskCost > 0).ToList();
                 double sum = 0.0;
+                int addRows = 3;
                 for (int i = 0; i < prjInfos.Count; i++)
                 {
-                    excelApp.Cells[i + 2, 1] = prjInfos[i].id; // 計畫編號
-                    excelApp.Cells[i + 2, 2] = prjInfos[i].name; // 計畫簡稱
-                    ReturnValueAndNumberFormat(prjInfos[i].consumables, excelApp, i + 2, 3); // 消耗品/其他
-                    ReturnValueAndNumberFormat(prjInfos[i].rent, excelApp, i + 2, 4); // 月租/時數
-                    ReturnValueAndNumberFormat(prjInfos[i].share, excelApp, i + 2, 5); // 各計劃分攤(耗材)
+                    excelApp.Cells[i + addRows, 1] = prjInfos[i].id; // 計畫編號
+                    excelApp.Cells[i + addRows, 2] = prjInfos[i].departmentId; // 部門ID
+                    excelApp.Cells[i + addRows, 3] = prjInfos[i].name; // 計畫簡稱
+                    ReturnValueAndNumberFormat(prjInfos[i].consumables, excelApp, i + addRows, 4); // 消耗品/其他
+                    ReturnValueAndNumberFormat(prjInfos[i].rent, excelApp, i + addRows, 5); // 月租/時數
+                    ReturnValueAndNumberFormat(prjInfos[i].share, excelApp, i + addRows, 6); // 各計劃分攤(耗材)
                     double total = prjInfos[i].consumables + prjInfos[i].rent + prjInfos[i].share;
                     sum += total;
-                    ReturnValueAndNumberFormat(total, excelApp, i + 2, 6); // 小計                    
-                    excelApp.Cells[i + 2, 7] = prjInfos[i].managerName; // 負責人                    
-                    excelApp.Cells[i + 2, 8] = prjInfos[i].managerId; // 員工編號
-                    ReturnValueAndNumberFormat(prjInfos[i].diskCost, excelApp, i + 2, 9); // 磁區費用/月
+                    ReturnValueAndNumberFormat(total, excelApp, i + addRows, 7); // 小計
+                    excelApp.Cells[i + addRows, 8] = prjInfos[i].managerName; // 負責人                    
+                    excelApp.Cells[i + addRows, 9] = prjInfos[i].managerId; // 員工編號
+                    ReturnValueAndNumberFormat(prjInfos[i].diskCost, excelApp, i + addRows, 10); // 磁區費用/月
                 }
                 // 各項目加總
                 try
                 {
-                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.consumables), excelApp, prjInfos.Count + 2, 3); // 消耗品/其他
-                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.rent), excelApp, prjInfos.Count + 2, 4); // 月租/時數
-                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.share), excelApp, prjInfos.Count + 2, 5); // 各計劃分攤(耗材)
-                    ReturnValueAndNumberFormat(sum, excelApp, prjInfos.Count + 2, 6); // 小計
-                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.diskCost), excelApp, prjInfos.Count + 2, 9); // 磁區費用/月
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.consumables), excelApp, prjInfos.Count + addRows, 4); // 消耗品/其他
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.rent), excelApp, prjInfos.Count + addRows, 5); // 月租/時數
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.share), excelApp, prjInfos.Count + addRows, 6); // 各計劃分攤(耗材)
+                    ReturnValueAndNumberFormat(sum, excelApp, prjInfos.Count + addRows, 7); // 小計
+                    ReturnValueAndNumberFormat(prjInfos.Sum(x => x.diskCost), excelApp, prjInfos.Count + addRows, 10); // 磁區費用/月
                 }
                 catch(Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
                 // 設定框線
-                for (int i = 1; i <= prjInfos.Count + 2; i++)
+                for (int i = 1; i <= prjInfos.Count + addRows; i++)
                 {
                     for (int j = 1; j <= colNames.Count; j++)
                     {
                         excelApp.Cells[i, j].Borders.LineStyle = Excel.XlLineStyle.xlContinuous;
-                        if(i.Equals(prjInfos.Count + 2)) { excelApp.Cells[i, j].Interior.Color = System.Drawing.Color.LightGray; }
+                        if(i.Equals(prjInfos.Count + addRows)) { excelApp.Cells[i, j].Interior.Color = System.Drawing.Color.LightGray; }
                     }
                 }
                 // 根據每個欄位標頭的字數設定欄寬
                 for (int col = 1; col <= colNames.Count; col++)
                 {
-                    if(col == 2)
+                    if(col == 3)
                     {
                         string headerText = prjInfos.Where(x => x.name.Length.Equals(prjInfos.Max(y => y.name.Length))).FirstOrDefault().name;
                         if (!String.IsNullOrEmpty(headerText))
@@ -599,10 +602,10 @@ namespace AutodeskCost
                             worksheet.Columns[col].ColumnWidth = byteLength + 2; // 加2留空間
                         }
                     }
-                    else if(col == 6) { worksheet.Columns[col].ColumnWidth = sum * 1.2; }
+                    else if(col == 7) { worksheet.Columns[col].ColumnWidth = sum * 1.2; }
                     else
                     {
-                        string headerText = worksheet.Cells[1, col].Value?.ToString() ?? "";
+                        string headerText = worksheet.Cells[2, col].Value?.ToString() ?? "";
                         if (!String.IsNullOrEmpty(headerText))
                         {
                             int byteLength = Encoding.Default.GetByteCount(headerText); // 中文2, 英文1
