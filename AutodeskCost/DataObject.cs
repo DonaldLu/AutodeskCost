@@ -27,6 +27,7 @@
             public string name { get; set; }
             public bool leader { get; set; }
             public double drawing { get; set; } // 繪圖
+            public double rent { get; set; } // 月租/時數
             public double hardware { get; set; } // 硬體
             public double software { get; set; } // 軟體
             public double network { get; set; } // 網路維護

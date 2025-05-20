@@ -61,6 +61,7 @@ namespace AutodeskCost
             this.userDatas = new List<UserData>(); // 部門電腦使用費月報
             this.getDiskInfos = new List<PrjData>(); // 磁區
             this.useSoftInfos = new List<UserData>(); // Autodesk軟體使用計畫
+            List<int> useSoftUsers = new List<int>(); // 有使用軟體的使用者ID
 
             try
             {
@@ -82,8 +83,8 @@ namespace AutodeskCost
                     else if (sheetName.Equals("部門電腦使用費月報"))
                     {
                         (List<string>, List<UserData>) prjAndUserDatas = GetPrjAndUserDatas(workSheet, rows, cols, prjNumber, leaderId, prjDatas);
-                        List<string> losePrjIds = prjAndUserDatas.Item1;
-                        userDatas = prjAndUserDatas.Item2;
+                        List<string> losePrjIds = prjAndUserDatas.Item1.OrderBy(x => x).ToList();
+                        userDatas = prjAndUserDatas.Item2.OrderBy(x => x.id).ToList();
                         // 檢查是否有計畫編號缺漏
                         if (losePrjIds.Count > 0)
                         {
@@ -116,7 +117,7 @@ namespace AutodeskCost
                     // 取得使用者各軟體使用費用
                     else if (sheetName.Equals("auto cad") || sheetName.Equals("BDSP") || sheetName.Equals("sap") || sheetName.Equals("Rhino") || sheetName.Equals("Lumion"))
                     {
-                        if (!GetUserSoftCost(workSheet, rows, sheetName, userDatas))
+                        if (!GetUserSoftCost(workSheet, rows, sheetName, userDatas, useSoftUsers))
                         {
                             errorInfo = "【" + sheetName + "】尚有員工編號資訊錯誤：";
                             return false;
@@ -124,6 +125,7 @@ namespace AutodeskCost
                     }
                     else if (sheetName.Equals("Autodesk軟體使用計畫"))
                     {
+                        ExceptUsers(useSoftUsers); // 檢查"部門電腦使用費月報"與"Autodesk軟體使用計畫"無法對應到的名單
                         useSoftInfos = GetUseSoftInfos(workSheet, rows);
                         List<UserData> nullUserInfos = useSoftInfos.Where(x => String.IsNullOrEmpty(x.project1) && String.IsNullOrEmpty(x.project2) && String.IsNullOrEmpty(x.project3)).ToList();
                         if (nullUserInfos.Count > 0)
@@ -303,6 +305,7 @@ namespace AutodeskCost
                                             double cost = 0;
                                             double.TryParse(value, out cost);
                                             if (col.Equals(5)) { userData.drawing = cost; } // 繪圖
+                                            else if (col.Equals(6)) { userData.rent = cost; } // 月租/時數
                                             else if (col.Equals(7)) { userData.hardware = cost; } // 硬體
                                             else if (col.Equals(8)) { userData.software = cost; } // 軟體
                                             else if (col.Equals(9)) { userData.network = cost; } // 網路維護
@@ -425,7 +428,7 @@ namespace AutodeskCost
             return getDiskInfos;
         }
         // 取得使用者各軟體使用費用
-        private bool GetUserSoftCost(Excel._Worksheet workSheet, int rows, string sheetName, List<UserData> userDatas)
+        private bool GetUserSoftCost(Excel._Worksheet workSheet, int rows, string sheetName, List<UserData> userDatas, List<int> useSoftUsers)
         {
             for (int i = 2; i <= rows; i++)
             {
@@ -435,6 +438,7 @@ namespace AutodeskCost
                     if (!String.IsNullOrEmpty(value))
                     {
                         int id = Convert.ToInt32(value);
+                        if (!useSoftUsers.Contains(id)) { useSoftUsers.Add(id); }                        
                         UserData userData = userDatas.Where(x => x.id.Equals(id)).FirstOrDefault();
                         value = workSheet.Cells[i, 12].Value?.ToString() ?? "";
                         if (userData != null && !String.IsNullOrEmpty(value))
@@ -457,6 +461,37 @@ namespace AutodeskCost
                 catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); return false; }
             }
             return true;
+        }
+        // 檢查"部門電腦使用費月報"與"Autodesk軟體使用計畫"無法對應到的名單
+        private void ExceptUsers(List<int> useSoftUsers)
+        {
+            List<int> userNames = userDatas.Where(x => !x.rent.Equals(0)).Select(x => x.id).ToList();
+            useSoftUsers = useSoftUsers.Distinct().OrderBy(x => x).ToList();
+            List<int> exceptValue1 = userNames.Except(useSoftUsers).ToList();
+            List<int> exceptValue2 = useSoftUsers.Except(userNames).ToList();
+            string warn = string.Empty;
+            int exceptCount = 1;
+            if (exceptValue1.Count > 0)
+            {
+                warn += "軟體使用費用查無使用者：\n";
+                foreach (int id in exceptValue1)
+                {
+                    string name = userDatas.Where(x => x.id.Equals(id)).Select(x => x.name).FirstOrDefault();
+                    warn += exceptCount + ". " + name + "\n";
+                    exceptCount++;
+                }
+            }
+            if (exceptValue2.Count > 0)
+            {
+                if (!String.IsNullOrEmpty(warn)) { warn += "\n"; }
+                warn += "部門電腦使用費月報查無使用者：\n";
+                foreach (int id in exceptValue2)
+                {
+                    warn += exceptCount + ". " + id + "\n";
+                    exceptCount++;
+                }
+            }
+            if (!String.IsNullOrEmpty(warn)) { MessageBox.Show(warn); }
         }
         // 計算使用者各計畫所花費占比
         private List<string> PrjCosts(List<UserData> userDatas, List<PrjData> prjInfos)
