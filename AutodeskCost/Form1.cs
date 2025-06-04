@@ -51,6 +51,10 @@ namespace AutodeskCost
                         {
                             List<PrjData> shareCostPrjs = prjInfos.Where(x => x.percent.Equals(1)).ToList();
                             double shareCost = readFile.shareCost; // 分攤金額
+                            // 將prjNumber(9510Q)使用者的【消費品/其他】加入分攤金額, 並扣除部門主管已要Share的金額
+                            List<UserData> userShareCosts = userDatas.Where(x => !x.id.Equals(leaderId) && x.consumables > 0).ToList();
+                            double userShareCostSum = userShareCosts.Sum(x => x.consumables);
+                            shareCost += userShareCostSum;
                             foreach (PrjData shareCostPrj in shareCostPrjs) { shareCostPrj.share = shareCost / shareCostPrjs.Count; }
                             readFile.WriteExcel(prjInfos, prjNumberTB.Text); // 將整合費用寫入Excel檔中
 

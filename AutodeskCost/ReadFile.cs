@@ -297,7 +297,7 @@ namespace AutodeskCost
                                     UserData userData = new UserData();
                                     userData.id = id;
                                     userData.name = name;
-                                    for(int col = 5; col <= 9; col++)
+                                    for(int col = 5; col <= 10; col++)
                                     {
                                         value = workSheet.Cells[i, col].Value?.ToString() ?? "";
                                         if (!String.IsNullOrEmpty(value))
@@ -309,6 +309,7 @@ namespace AutodeskCost
                                             else if (col.Equals(7)) { userData.hardware = cost; } // 硬體
                                             else if (col.Equals(8)) { userData.software = cost; } // 軟體
                                             else if (col.Equals(9)) { userData.network = cost; } // 網路維護
+                                            else if (col.Equals(10)) { userData.consumables = cost; } // 消耗品/其他
                                         }
                                     }
                                     if (id.Equals(leaderId))

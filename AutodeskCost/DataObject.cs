@@ -31,6 +31,7 @@
             public double hardware { get; set; } // 硬體
             public double software { get; set; } // 軟體
             public double network { get; set; } // 網路維護
+            public double consumables { get; set; } // 消耗品/其他
             public double cadCost { get; set; }
             public double bdspCost { get; set; }
             public double sapCost { get; set; }
