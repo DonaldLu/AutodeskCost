@@ -359,25 +359,64 @@ namespace AutodeskCost
                         project = workSheet.Cells[i, 4].Value?.ToString() ?? "";
                         if (!String.IsNullOrEmpty(project))
                         {
-                            userData.project2 = project;
-                            string isNullOrEmpty = workSheet.Cells[i, 5].Value?.ToString() ?? "";
-                            if (!String.IsNullOrEmpty(isNullOrEmpty))
+                            if (String.IsNullOrEmpty(userData.project1))
                             {
-                                double percent = 0;
-                                double.TryParse(isNullOrEmpty, out percent);
-                                userData.percent2 = percent;
+                                userData.project1 = project;
+                                string isNullOrEmpty = workSheet.Cells[i, 5].Value?.ToString() ?? "";
+                                if (!String.IsNullOrEmpty(isNullOrEmpty))
+                                {
+                                    double percent = 0;
+                                    double.TryParse(isNullOrEmpty, out percent);
+                                    userData.percent1 = percent;
+                                }
+                            }
+                            else
+                            {
+                                userData.project2 = project;
+                                string isNullOrEmpty = workSheet.Cells[i, 5].Value?.ToString() ?? "";
+                                if (!String.IsNullOrEmpty(isNullOrEmpty))
+                                {
+                                    double percent = 0;
+                                    double.TryParse(isNullOrEmpty, out percent);
+                                    userData.percent2 = percent;
+                                }
                             }
                         }
                         project = workSheet.Cells[i, 6].Value?.ToString() ?? "";
                         if (!String.IsNullOrEmpty(project))
                         {
-                            userData.project3 = project;
-                            string isNullOrEmpty = workSheet.Cells[i, 7].Value?.ToString() ?? "";
-                            if (!String.IsNullOrEmpty(isNullOrEmpty))
+                            if (String.IsNullOrEmpty(userData.project1))
                             {
-                                double percent = 0;
-                                double.TryParse(isNullOrEmpty, out percent);
-                                userData.percent3 = percent;
+                                userData.project1 = project;
+                                string isNullOrEmpty = workSheet.Cells[i, 7].Value?.ToString() ?? "";
+                                if (!String.IsNullOrEmpty(isNullOrEmpty))
+                                {
+                                    double percent = 0;
+                                    double.TryParse(isNullOrEmpty, out percent);
+                                    userData.percent1 = percent;
+                                }
+                            }
+                            else if (String.IsNullOrEmpty(userData.project2))
+                            {
+                                userData.project2 = project;
+                                string isNullOrEmpty = workSheet.Cells[i, 7].Value?.ToString() ?? "";
+                                if (!String.IsNullOrEmpty(isNullOrEmpty))
+                                {
+                                    double percent = 0;
+                                    double.TryParse(isNullOrEmpty, out percent);
+                                    userData.percent2 = percent;
+                                }
+                            }
+                            else
+                            {
+                                userData.project3 = project;
+                                string isNullOrEmpty = workSheet.Cells[i, 7].Value?.ToString() ?? "";
+                                if (!String.IsNullOrEmpty(isNullOrEmpty))
+                                {
+                                    double percent = 0;
+                                    double.TryParse(isNullOrEmpty, out percent);
+                                    userData.percent3 = percent;
+                                }
                             }
                         }
                         useSoftInfos.Add(userData);
@@ -526,10 +565,10 @@ namespace AutodeskCost
             return nullPrjIds;
         }
         // 各計劃分攤(耗材), 分配剩餘金額
-        public void SharePrjCost(List<UserData> userDatas, List<PrjData> prjInfos, string prjNumber)
+        public List<SharePrjCost> SharePrjCost(List<UserData> userDatas, List<PrjData> prjInfos, string prjNumber)
         {
-            List<UserData> sharePrjCosts = userDatas.Where(x => x.drawing > 0 || x.hardware > 0 || x.software > 0 || x.network > 0).ToList();
-            ShareCostForm shareCostForm = new ShareCostForm(sharePrjCosts);
+            List<UserData> userSharePrjCosts = userDatas.Where(x => x.drawing > 0 || x.hardware > 0 || x.software > 0 || x.network > 0).ToList();
+            ShareCostForm shareCostForm = new ShareCostForm(userSharePrjCosts, prjNumber);
             shareCostForm.ShowDialog();
             foreach (SharePrjCost sharePrjCost in shareCostForm.sharePrjCosts)
             {
@@ -541,6 +580,7 @@ namespace AutodeskCost
                 }
                 else { MessageBox.Show("查無此計畫編號：" + sharePrjCost.prjId); nullPrjId = true; }
             }
+            return shareCostForm.sharePrjCosts;
         }
         // 將整合費用寫入Excel檔中
         public void WriteExcel(List<PrjData> prjInfos, string prjNumber)
@@ -654,6 +694,263 @@ namespace AutodeskCost
             ReleaseObject(worksheet);
 
             workbook.SaveAs(excelPath);
+
+            // 關閉工作簿和ExcelApp
+            workbook.Close();
+            excelApp.Quit();
+
+            // 釋放COM
+            ReleaseObject(sheets);
+            ReleaseObject(workbook);
+            ReleaseObject(excelApp);
+        }
+        // 軌道二部_其他費用
+        public void WriteUserOtherCost(List<SharePrjCost> sharePrjCosts, List<PrjData> prjInfos, string prjNumber, string yearMonth, string excelPath)
+        {
+            List<string> colNames = new List<string>() { "員編", "姓名", "類型", "計畫編號", "使用費" };
+            Excel.Application excelApp = new Excel.Application(); // 創建Excel
+            //excelApp.Visible = true; // 開啟Excel可見
+            Workbook workbook = excelApp.Workbooks.Add(); // 創建一個空的workbook
+            Sheets sheets = workbook.Sheets; // 獲取當前工作簿的數量
+            int sheetCount = 1;
+            string sheetName = "整合費用";
+            List<string> existingNames = workbook.Worksheets.Cast<Worksheet>().Select(x => x.Name).ToList();
+            Worksheet worksheet = sheets[1];
+            try
+            {
+                if (sheetCount == 1) { if (!existingNames.Contains(sheetName)) { worksheet.Name = sheetName; } }
+                else
+                {
+                    worksheet = sheets.Add(After: sheets[sheets.Count]); // 新增一個工作表
+                    try { if (!existingNames.Contains(sheetName)) { worksheet.Name = sheetName; } }
+                    catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                }
+                sheetCount++;
+
+                worksheet.Cells.Font.Name = "微軟正黑體"; // 設定Excel資料字體字型
+                worksheet.Cells.Font.Size = 10; // 設定Excel資料字體大小
+                worksheet.Cells.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter; // 文字水平置中
+                worksheet.Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter; // 文字垂直置中
+                // 標頭
+                Excel.Range range = worksheet.Range["A1", "E1"];
+                range.Merge();
+                excelApp.Cells[1, 1] = "整合費用-" + yearMonth;
+                excelApp.Cells[1, 1].Font.Size = 14; // 設定Excel資料字體大小
+                excelApp.Cells[1, 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous; // 設定框線
+                excelApp.Cells[1, 1].Interior.Color = System.Drawing.Color.LightSkyBlue; // 設定樣式與背景色
+                for (int col = 0; col < colNames.Count; col++)
+                {
+                    excelApp.Cells[2, col + 1] = colNames[col];
+                    excelApp.Cells[2, col + 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous; // 設定框線
+                    excelApp.Cells[2, col + 1].Interior.Color = System.Drawing.Color.LightYellow; // 設定樣式與背景色
+                }
+                int rows = 0;
+                int addRows = 3;
+                for (int i = 0; i < sharePrjCosts.Count; i++)
+                {
+                    excelApp.Cells[rows + addRows, 1] = sharePrjCosts[i].id; // 員編
+                    excelApp.Cells[rows + addRows, 2] = sharePrjCosts[i].name; // 姓名
+                    excelApp.Cells[rows + addRows, 3] = sharePrjCosts[i].type; // 類型
+                    if (sharePrjCosts[i].prjId.Equals(prjNumber))
+                    {
+                        List<PrjData> sharePrjs = prjInfos.Where(x => x.share > 0).ToList();
+                        foreach(PrjData sharePrj in sharePrjs)
+                        {
+                            excelApp.Cells[rows + addRows, 4] = sharePrj.id; // 計畫編號
+                            excelApp.Cells[rows + addRows, 5] = sharePrjCosts[i].cost / sharePrjs.Count; // 使用費
+                            ReturnValueAndNumberFormat(sharePrjCosts[i].cost / sharePrjs.Count, excelApp, rows + addRows, 5);
+                            rows++;
+                        }
+                        worksheet.Range[excelApp.Cells[rows + addRows - sharePrjs.Count, 1], excelApp.Cells[rows + addRows - 1, 1]].Merge(); // 員編合併儲存格
+                        worksheet.Range[excelApp.Cells[rows + addRows - sharePrjs.Count, 2], excelApp.Cells[rows + addRows - 1, 2]].Merge(); // 姓名合併儲存格
+                        worksheet.Range[excelApp.Cells[rows + addRows - sharePrjs.Count, 3], excelApp.Cells[rows + addRows - 1, 3]].Merge(); // 類型合併儲存格
+                    }
+                    else
+                    {
+                        excelApp.Cells[rows + addRows, 4] = sharePrjCosts[i].prjId; // 計畫編號
+                        excelApp.Cells[rows + addRows, 5] = sharePrjCosts[i].cost; // 使用費
+                        ReturnValueAndNumberFormat(sharePrjCosts[i].cost, excelApp, rows + addRows, 5);
+                        rows++;
+                    }
+                }
+                if (sharePrjCosts.Count > 0)
+                {
+                    // 使用費加總
+                    try
+                    {
+                        excelApp.Cells[rows + addRows, 1] = "合計";
+                        ReturnValueAndNumberFormat(sharePrjCosts.Sum(x => x.cost), excelApp, rows + addRows, 5); // 使用費
+                    }
+                    catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                    // 設定框線
+                    for (int i = 1; i <= rows + addRows; i++)
+                    {
+                        for (int j = 1; j <= colNames.Count; j++)
+                        {
+                            excelApp.Cells[i, j].Borders.LineStyle = Excel.XlLineStyle.xlContinuous;
+                            if (i.Equals(rows + addRows)) { excelApp.Cells[i, j].Interior.Color = System.Drawing.Color.LightGray; }
+                        }
+                    }
+                    rows++;
+                }
+                // 消耗品/其他
+                userDatas = userDatas.Where(x => x.consumables > 0).ToList();
+                for (int i = 0; i < userDatas.Count; i++)
+                {
+                    excelApp.Cells[rows + addRows, 1] = userDatas[i].id; // 員編
+                    excelApp.Cells[rows + addRows, 2] = userDatas[i].name; // 姓名
+                    excelApp.Cells[rows + addRows, 3] = "消耗品/其他"; // 類型
+                    if (userDatas[i].leader)
+                    {
+                        List<PrjData> sharePrjs = prjInfos.Where(x => x.share > 0).ToList();
+                        foreach (PrjData sharePrj in sharePrjs)
+                        {
+                            excelApp.Cells[rows + addRows, 4] = sharePrj.id; // 計畫編號
+                            excelApp.Cells[rows + addRows, 5] = userDatas[i].consumables / sharePrjs.Count; // 使用費
+                            ReturnValueAndNumberFormat(userDatas[i].consumables / sharePrjs.Count, excelApp, rows + addRows, 5);
+                            rows++;
+                        }
+                        worksheet.Range[excelApp.Cells[rows + addRows - sharePrjs.Count, 1], excelApp.Cells[rows + addRows - 1, 1]].Merge(); // 員編合併儲存格
+                        worksheet.Range[excelApp.Cells[rows + addRows - sharePrjs.Count, 2], excelApp.Cells[rows + addRows - 1, 2]].Merge(); // 姓名合併儲存格
+                        worksheet.Range[excelApp.Cells[rows + addRows - sharePrjs.Count, 3], excelApp.Cells[rows + addRows - 1, 3]].Merge(); // 類型合併儲存格
+                    }
+                    else
+                    {
+                        excelApp.Cells[rows + addRows, 4] = prjNumber; // 計畫編號
+                        excelApp.Cells[rows + addRows, 5] = userDatas[i].consumables; // 使用費
+                        ReturnValueAndNumberFormat(userDatas[i].consumables, excelApp, rows + addRows, 5);
+                        rows++;
+                    }
+                }
+                if(userDatas.Count > 0)
+                {
+                    // 使用費加總
+                    try
+                    {
+                        excelApp.Cells[rows + addRows, 1] = "合計";
+                        ReturnValueAndNumberFormat(userDatas.Sum(x => x.consumables), excelApp, rows + addRows, 5); // [消耗品/其他]使用費
+                    }
+                    catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                    // 設定框線
+                    for (int i = 1; i <= rows + addRows; i++)
+                    {
+                        for (int j = 1; j <= colNames.Count; j++)
+                        {
+                            excelApp.Cells[i, j].Borders.LineStyle = Excel.XlLineStyle.xlContinuous;
+                            if (i.Equals(rows + addRows)) { excelApp.Cells[i, j].Interior.Color = System.Drawing.Color.LightGray; }
+                        }
+                    }
+                }
+                // 設定"類型"欄位的欄寬
+                int byteLength = Encoding.Default.GetByteCount("消耗品/其他"); // 中文2, 英文1
+                worksheet.Columns[3].ColumnWidth = byteLength + 2; // 加2留空間
+            }
+            catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+            ReleaseObject(worksheet);
+
+            workbook.SaveAs(excelPath);
+
+            // 關閉工作簿和ExcelApp
+            workbook.Close();
+            excelApp.Quit();
+
+            // 釋放COM
+            ReleaseObject(sheets);
+            ReleaseObject(workbook);
+            ReleaseObject(excelApp);
+        }
+        // 軌道二部_軟體使用費
+        public void WriteUserRent(List<UserData> userDatas, string yearMonth, string excelPath)
+        {
+            List<string> colNames = new List<string>() { "員編", "姓名", "計畫編號", "電腦使用費" };
+            Excel.Application excelApp = new Excel.Application(); // 創建Excel        
+            Excel.Workbook workbook = excelApp.Workbooks.Open(excelPath); // 打開Excel檔案
+            Excel.Worksheet worksheet = workbook.Sheets.Add(); // 新增工作表
+            Sheets sheets = workbook.Sheets; // 獲取當前工作簿的數量
+            int sheetCount = 1;
+            string sheetName = "個人軟體使用費";
+            List<string> existingNames = workbook.Worksheets.Cast<Worksheet>().Select(x => x.Name).ToList();
+            try
+            {
+                if (sheetCount == 1) { if (!existingNames.Contains(sheetName)) { worksheet.Name = sheetName; } }
+                else
+                {
+                    worksheet = sheets.Add(After: sheets[sheets.Count]); // 新增一個工作表
+                    try { if (!existingNames.Contains(sheetName)) { worksheet.Name = sheetName; } }
+                    catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                }
+                sheetCount++;
+
+                worksheet.Cells.Font.Name = "微軟正黑體"; // 設定Excel資料字體字型
+                worksheet.Cells.Font.Size = 10; // 設定Excel資料字體大小
+                worksheet.Cells.HorizontalAlignment = Excel.XlHAlign.xlHAlignCenter; // 文字水平置中
+                worksheet.Cells.VerticalAlignment = Excel.XlVAlign.xlVAlignCenter; // 文字垂直置中
+                // 標頭
+                Excel.Range range = worksheet.Range["A1", "D1"];
+                range.Merge();
+                excelApp.Cells[1, 1] = "個人軟體使用費-" + yearMonth;
+                excelApp.Cells[1, 1].Font.Size = 14; // 設定Excel資料字體大小
+                excelApp.Cells[1, 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous; // 設定框線
+                excelApp.Cells[1, 1].Interior.Color = System.Drawing.Color.LightSkyBlue; // 設定樣式與背景色
+                for (int col = 0; col < colNames.Count; col++)
+                {
+                    excelApp.Cells[2, col + 1] = colNames[col];
+                    excelApp.Cells[2, col + 1].Borders.LineStyle = Excel.XlLineStyle.xlContinuous; // 設定框線
+                    excelApp.Cells[2, col + 1].Interior.Color = System.Drawing.Color.LightYellow; // 設定樣式與背景色
+                }
+                userDatas = userDatas.Where(x => x.rent > 0).ToList();
+                int rows = 0;
+                int addRows = 3;
+                for (int i = 0; i < userDatas.Count; i++)
+                {
+                    excelApp.Cells[rows + addRows, 1] = userDatas[i].id; // 員編
+                    excelApp.Cells[rows + addRows, 2] = userDatas[i].name; // 姓名
+                    if (!String.IsNullOrEmpty(userDatas[i].project1) && userDatas[i].cost1 > 0)
+                    {
+                        excelApp.Cells[rows + addRows, 3] = userDatas[i].project1; // 計畫編號1
+                        excelApp.Cells[rows + addRows, 4] = userDatas[i].cost1; // 電腦使用費1
+                        ReturnValueAndNumberFormat(userDatas[i].cost1, excelApp, rows + addRows, 4);
+                        rows++;
+                    }
+                    if (!String.IsNullOrEmpty(userDatas[i].project2) && userDatas[i].cost2 > 0)
+                    {
+                        excelApp.Cells[rows + addRows, 3] = userDatas[i].project2; // 計畫編號2
+                        excelApp.Cells[rows + addRows, 4] = userDatas[i].cost2; // 電腦使用費2
+                        ReturnValueAndNumberFormat(userDatas[i].cost2, excelApp, rows + addRows, 4);
+                        worksheet.Range[excelApp.Cells[rows + addRows - 1, 1], excelApp.Cells[rows + addRows, 1]].Merge(); // 員編合併儲存格
+                        worksheet.Range[excelApp.Cells[rows + addRows - 1, 2], excelApp.Cells[rows + addRows, 2]].Merge(); // 姓名合併儲存格
+                        rows++;
+                    }
+                    if (!String.IsNullOrEmpty(userDatas[i].project3) && userDatas[i].cost3 > 0)
+                    {
+                        excelApp.Cells[rows + addRows, 3] = userDatas[i].project3; // 計畫編號3
+                        excelApp.Cells[rows + addRows, 4] = userDatas[i].cost3; // 電腦使用費3
+                        ReturnValueAndNumberFormat(userDatas[i].cost3, excelApp, rows + addRows, 4);
+                        worksheet.Range[excelApp.Cells[rows + addRows - 2, 1], excelApp.Cells[rows + addRows, 1]].Merge(); // 員編合併儲存格
+                        worksheet.Range[excelApp.Cells[rows + addRows - 2, 2], excelApp.Cells[rows + addRows, 2]].Merge(); // 姓名合併儲存格
+                        rows++;
+                    }
+                }
+                // 電腦使用費加總
+                try
+                {
+                    ReturnValueAndNumberFormat(userDatas.Sum(x => x.rent), excelApp, rows + addRows, 4); // 月租/時數
+                }
+                catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+                // 設定框線
+                for (int i = 1; i <= rows + addRows; i++)
+                {
+                    for (int j = 1; j <= colNames.Count; j++)
+                    {
+                        excelApp.Cells[i, j].Borders.LineStyle = Excel.XlLineStyle.xlContinuous;
+                        if (i.Equals(rows + addRows)) { excelApp.Cells[i, j].Interior.Color = System.Drawing.Color.LightGray; }
+                    }
+                }
+            }
+            catch (Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
+            ReleaseObject(worksheet);
+
+            workbook.Save();
 
             // 關閉工作簿和ExcelApp
             workbook.Close();

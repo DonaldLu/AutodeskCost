@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -46,7 +47,8 @@ namespace AutodeskCost
                         List<UserData> userDatas = readFile.userDatas; // 部門電腦使用費月報
                         List<PrjData> prjInfos = readFile.prjDatas; // 計畫資訊
                         List<UserData> shareCosts = userDatas.Where(x => x.drawing > 0 || x.hardware > 0 || x.software > 0 || x.network > 0).ToList();
-                        if (shareCosts.Count > 0) { readFile.SharePrjCost(userDatas, prjInfos, prjNumberTB.Text); } // 各計劃分攤(耗材), 分配剩餘金額
+                        List<SharePrjCost> sharePrjCosts = new List<SharePrjCost>();
+                        if (shareCosts.Count > 0) { sharePrjCosts = readFile.SharePrjCost(userDatas, prjInfos, prjNumberTB.Text); } // 各計劃分攤(耗材), 分配剩餘金額
                         if (!readFile.nullPrjId) // 如果沒有輸入錯誤PrjId, 才輸出Excel
                         {
                             List<PrjData> shareCostPrjs = prjInfos.Where(x => x.percent.Equals(1)).ToList();
@@ -56,7 +58,16 @@ namespace AutodeskCost
                             double userShareCostSum = userShareCosts.Sum(x => x.consumables);
                             shareCost += userShareCostSum;
                             foreach (PrjData shareCostPrj in shareCostPrjs) { shareCostPrj.share = shareCost / shareCostPrjs.Count; }
-                            readFile.WriteExcel(prjInfos, prjNumberTB.Text); // 將整合費用寫入Excel檔中
+
+                            // 寫入資料到Excel中
+                            DateTime lastMonth = DateTime.Now.AddMonths(-1); // 取得前一個月                                                                             
+                            CultureInfo taiwanCulture = new CultureInfo("zh-TW"); // 設定 CultureInfo 為 zh-TW，並套用 TaiwanCalendar(民國年)
+                            taiwanCulture.DateTimeFormat.Calendar = new TaiwanCalendar();                            
+                            string yearMonth = lastMonth.ToString("yyyMM", taiwanCulture); // 格式化為民國年月
+                            string excelPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "軌道二部_軟體使用費-" + yearMonth);
+                            //readFile.WriteExcel(prjInfos, prjNumberTB.Text); // 將整合費用寫入Excel檔中
+                            readFile.WriteUserOtherCost(sharePrjCosts, prjInfos, prjNumberTB.Text, yearMonth, excelPath); // 軌道二部_其他費用
+                            readFile.WriteUserRent(userDatas, yearMonth, excelPath); // 軌道二部_軟體使用費
 
                             DateTime timeEnd = DateTime.Now; // 計時結束 取得目前時間
                             TimeSpan totalTime = timeEnd - timeStart;

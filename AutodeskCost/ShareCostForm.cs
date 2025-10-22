@@ -12,15 +12,15 @@ namespace AutodeskCost
     {
         public List<SharePrjCost> sharePrjCosts = new List<SharePrjCost>();
 
-        public ShareCostForm(List<UserData> sharePrjCosts)
+        public ShareCostForm(List<UserData> sharePrjCosts, string prjNumber)
         {
             InitializeComponent();
             DataObject dataObject = new DataObject();
-            CreateSharePrjItems(sharePrjCosts);
+            CreateSharePrjItems(sharePrjCosts, prjNumber);
             CenterToParent();
         }
         // 新增
-        public void CreateSharePrjItems(List<UserData> sharePrjCosts)
+        public void CreateSharePrjItems(List<UserData> sharePrjCosts, string prjNumber)
         {
             List<string> items = new List<string>();
             foreach(UserData userData in sharePrjCosts)
@@ -38,7 +38,7 @@ namespace AutodeskCost
                 {
                     int id = Convert.ToInt32(items[i].Split('_')[0]);
                     UserData userData = sharePrjCosts.Where(x => x.id.Equals(id)).FirstOrDefault();
-                    List<string> prjNames = new List<string>() { userData.project1, userData.project2, userData.project3 };
+                    List<string> prjNames = new List<string>() { userData.project1, userData.project2, userData.project3, prjNumber };
                     AddControl(labels, comboBoxs, items[i], i, prjNames);
                 }
                 catch(Exception ex) { string error = ex.Message + "\n" + ex.ToString(); }
@@ -58,10 +58,11 @@ namespace AutodeskCost
             {
                 if (!String.IsNullOrEmpty(prjName)){ comboBoxs[i].Items.Add(prjName); }
             }
-            comboBoxs[i].Items.Add("");
+            //comboBoxs[i].Items.Add("");
             comboBoxs[i].AutoSize = true;
             comboBoxs[i].Location = new System.Drawing.Point(200, 5 + i * 25);
-            comboBoxs[i].SelectedIndex = 0;
+            comboBoxs[i].SelectedIndex = comboBoxs[i].Items.Count - 1; // 預設選最後一個(9510Q)
+            comboBoxs[i].DropDownStyle = ComboBoxStyle.DropDownList; // 只能選取列表內容
 
             Panel.Controls.Add(labels[i]);
             Panel.Controls.Add(comboBoxs[i]);
@@ -78,7 +79,12 @@ namespace AutodeskCost
                     SharePrjCost sharePrjCost = new SharePrjCost();                    
                     string[] spends = control.AccessibilityObject.Name.Split('_');
                     string spend = spends[spends.Length - 1].Replace("元：", "");
+                    int id = Convert.ToInt32(spends[0]);
                     double cost = Convert.ToDouble(spend);
+
+                    sharePrjCost.id = id;
+                    sharePrjCost.name = spends[1];
+                    sharePrjCost.type = spends[2];
                     sharePrjCost.prjId = comboBox.Text;
                     sharePrjCost.cost = cost;
                     this.sharePrjCosts.Add(sharePrjCost);

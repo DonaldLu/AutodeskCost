@@ -50,6 +50,9 @@
         }
         public class SharePrjCost
         {
+            public int id { get; set; }
+            public string name { get; set; }
+            public string type { get; set; } // 類型
             public string prjId { get; set; }
             public double cost { get; set; }
         }
